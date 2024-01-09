@@ -182,6 +182,8 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
         const float val = m_pVolume->getSampleInterpolate(samplePos);
         if (val > m_config.isoValue) {
+            float bisectionT = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
+            samplePos = ray.origin + bisectionT * ray.direction;
             glm::vec3 lightVector = m_pCamera->position() - samplePos;
             glm::vec3 cameraVector = m_pCamera->position() - samplePos;
             glm::vec3 color = computePhongShading(isoColor, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector);
@@ -197,7 +199,30 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 // iterations such that it does not get stuck in degerate cases.
 float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const
 {
-    return 0.0f;
+    if (!m_config.bisection) {
+        return t1;
+    }
+    int maxIterations = 10;
+    float lower = t0;
+    float upper = t1;
+    for (int i = 1; i <= 10; i++) {
+        float t = (lower + upper) / 2.0f;
+        glm::vec3 samplePos = ray.origin + ray.direction * t;
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+
+        if (glm::abs(val - isoValue) <= 0.01f) {
+            return t;
+        }
+
+        if (val > isoValue) {
+            upper = t;
+        }
+
+        if (val < isoValue) {
+            lower = t;
+        }
+    }
+    return (lower + upper) / 2.0f;
 }
 
 // ======= TODO: IMPLEMENT ========
