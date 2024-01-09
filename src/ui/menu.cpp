@@ -139,6 +139,10 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
 
         ImGui::NewLine();
 
+        ImGui::Checkbox("Use Bisection Algorithm", &m_renderConfig.bisection);
+
+        ImGui::NewLine();
+
         ImGui::DragFloat("Iso Value", &m_renderConfig.isoValue, 0.1f, 0.0f, float(m_volumeMax));
 
         ImGui::NewLine();
