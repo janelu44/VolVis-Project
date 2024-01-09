@@ -199,13 +199,12 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 // iterations such that it does not get stuck in degerate cases.
 float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const
 {
-    if (!m_config.bisection) {
+    if (!m_config.bisection || m_config.bisectionMaxIter == 0) {
         return t1;
     }
-    int maxIterations = 10;
     float lower = t0;
     float upper = t1;
-    for (int i = 1; i <= 10; i++) {
+    for (int i = 1; i <= m_config.bisectionMaxIter; i++) {
         float t = (lower + upper) / 2.0f;
         glm::vec3 samplePos = ray.origin + ray.direction * t;
         const float val = m_pVolume->getSampleInterpolate(samplePos);
@@ -262,7 +261,42 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 // Use getTFValue to compute the color for a given volume value according to the 1D transfer function.
 glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 {
-    return glm::vec4(0.0f);
+    // initialize steps
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    const glm::vec3 increment = sampleStep * ray.direction;
+
+    // initialize color
+    glm::vec4 accumulatedColor = glm::vec4(0.0f);
+    float previousOpacity = 0.0f;
+
+    // sample space at each step
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        // get intensity
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+
+        // get color and opacity from transfer function
+        glm::vec4 tfVal = getTFValue(val);
+
+        // compute shading
+        glm::vec3 lightVector = m_pCamera->position() - samplePos;
+        glm::vec3 cameraVector = m_pCamera->position() - samplePos;
+        glm::vec3 color = computePhongShading(glm::vec3(tfVal.x, tfVal.y, tfVal.z), m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector);
+
+        // bypass shading
+        color = glm::vec3(tfVal.x, tfVal.y, tfVal.z);
+        
+        // pre-multiply color by opacity
+        color *= tfVal.w;
+
+        // front-to-back compositing
+        accumulatedColor += (1.0f - previousOpacity) * glm::vec4(color, tfVal.w);
+        previousOpacity += (1.0f - previousOpacity) * tfVal.w;
+
+        if (previousOpacity >= 1.0f)
+            break;
+    }
+
+    return accumulatedColor;
 }
 
 // ======= DO NOT MODIFY THIS FUNCTION ========

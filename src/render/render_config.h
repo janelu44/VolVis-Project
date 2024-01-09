@@ -20,6 +20,7 @@ struct RenderConfig {
 
     bool volumeShading { false };
     bool bisection { false };
+    int bisectionMaxIter { 10 };
     float isoValue { 95.0f };
 
     // 1D transfer function.

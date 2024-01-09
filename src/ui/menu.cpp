@@ -139,7 +139,9 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
 
         ImGui::NewLine();
 
-        ImGui::Checkbox("Use Bisection Algorithm", &m_renderConfig.bisection);
+        ImGui::Text("Bisection Algorithm:");
+        ImGui::Checkbox("Enabled", &m_renderConfig.bisection);
+        ImGui::DragInt("Max Iterations", &m_renderConfig.bisectionMaxIter, 1, 0, 50);
 
         ImGui::NewLine();
 
