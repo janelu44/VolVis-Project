@@ -182,10 +182,13 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
         const float val = m_pVolume->getSampleInterpolate(samplePos);
         if (val > m_config.isoValue) {
-            return glm::vec4(isoColor, 1.0f); 
+            glm::vec3 lightVector = m_pCamera->position() - samplePos;
+            glm::vec3 cameraVector = m_pCamera->position() - samplePos;
+            glm::vec3 color = computePhongShading(isoColor, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector);
+            return glm::vec4(color, 1.0f); 
         }
     }
-    return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    return glm::vec4(0.0f);
 }
 
 // ======= TODO: IMPLEMENT ========
@@ -206,7 +209,27 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 // You are free to choose any specular power that you'd like.
 glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
 {
-    return glm::vec3(0.0f);
+    // define Phong constants
+    float ka = 0.1f;
+    float kd = 0.7f;
+    float ks = 0.2f;
+    float shininess = 100.0f;
+
+    // define light color (white)
+    glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    // compute ambient term
+    glm::vec3 ambientColor = ka * (lightColor * color);
+
+    // compute diffuse term
+    glm::vec3 diffuseColor = kd * (lightColor * color) * glm::dot(glm::normalize(-L), glm::normalize(gradient.dir));
+    //diffuseColor = glm::clamp(diffuseColor, glm::vec3(0.0f), glm::vec3(1.0f));
+
+    // compute specular term
+    glm::vec3 specularColor = ks * (lightColor * color) * glm::pow(glm::dot(glm::normalize(glm::reflect(L, gradient.dir)), glm::normalize(V)), shininess);
+    specularColor = glm::clamp(specularColor, glm::vec3(0.0f), glm::vec3(1.0f));
+
+    return ambientColor + diffuseColor + specularColor;
 }
 
 // ======= TODO: IMPLEMENT ========
