@@ -186,7 +186,7 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
             samplePos = ray.origin + bisectionT * ray.direction;
             glm::vec3 lightVector = m_pCamera->position() - samplePos;
             glm::vec3 cameraVector = m_pCamera->position() - samplePos;
-            glm::vec3 color = computePhongShading(isoColor, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector);
+            glm::vec3 color = m_config.volumeShading ? computePhongShading(isoColor, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector) : glm::vec3(0.0f);
             return glm::vec4(color, 1.0f); 
         }
     }
@@ -247,7 +247,7 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 
     // compute diffuse term
     glm::vec3 diffuseColor = kd * (lightColor * color) * glm::dot(glm::normalize(-L), glm::normalize(gradient.dir));
-    //diffuseColor = glm::clamp(diffuseColor, glm::vec3(0.0f), glm::vec3(1.0f));
+    diffuseColor = glm::clamp(diffuseColor, glm::vec3(0.0f), glm::vec3(1.0f));
 
     // compute specular term
     glm::vec3 specularColor = ks * (lightColor * color) * glm::pow(glm::dot(glm::normalize(glm::reflect(L, gradient.dir)), glm::normalize(V)), shininess);
@@ -262,41 +262,34 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 {
     // initialize steps
-    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    glm::vec3 samplePos = ray.origin + ray.tmax * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
 
     // initialize color
-    glm::vec4 accumulatedColor = glm::vec4(0.0f);
-    float previousOpacity = 0.0f;
+    glm::vec3 accumulatedColor = glm::vec3(0.0f);
 
-    // sample space at each step
-    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+    // back-to-front compositing
+    for (float t = ray.tmax; t >= ray.tmin; t -= sampleStep, samplePos -= increment) {
         // get intensity
         const float val = m_pVolume->getSampleInterpolate(samplePos);
 
         // get color and opacity from transfer function
         glm::vec4 tfVal = getTFValue(val);
 
-        // compute shading
-        glm::vec3 lightVector = m_pCamera->position() - samplePos;
-        glm::vec3 cameraVector = m_pCamera->position() - samplePos;
-        glm::vec3 color = computePhongShading(glm::vec3(tfVal.x, tfVal.y, tfVal.z), m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector);
+        glm::vec3 color = glm::vec3(tfVal);
 
-        // bypass shading
-        color = glm::vec3(tfVal.x, tfVal.y, tfVal.z);
-        
-        // pre-multiply color by opacity
-        color *= tfVal.w;
+        if (m_config.volumeShading) {
+            // compute shading
+            glm::vec3 lightVector = m_pCamera->position() - samplePos;
+            glm::vec3 cameraVector = m_pCamera->position() - samplePos;
+            color = computePhongShading(color, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector); 
+        }
 
-        // front-to-back compositing
-        accumulatedColor += (1.0f - previousOpacity) * glm::vec4(color, tfVal.w);
-        previousOpacity += (1.0f - previousOpacity) * tfVal.w;
-
-        if (previousOpacity >= 1.0f)
-            break;
+        // accumulate color
+        accumulatedColor = tfVal.w * color + (1.0f - tfVal.w) * accumulatedColor;
     }
 
-    return accumulatedColor;
+    return glm::vec4(accumulatedColor, 1.0f);
 }
 
 // ======= DO NOT MODIFY THIS FUNCTION ========
@@ -315,7 +308,35 @@ glm::vec4 Renderer::getTFValue(float val) const
 // Use the getTF2DOpacity function that you implemented to compute the opacity according to the 2D transfer function.
 glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 {
-    return glm::vec4(0.0f);
+    // initialize steps
+    glm::vec3 samplePos = ray.origin + ray.tmax * ray.direction;
+    const glm::vec3 increment = sampleStep * ray.direction;
+
+    // initialize color
+    glm::vec3 accumulatedColor = glm::vec3(0.0f);
+
+    // back-to-front compositing
+    for (float t = ray.tmax; t >= ray.tmin; t -= sampleStep, samplePos -= increment) {
+        // get intensity and gradient
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+        const volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+
+        // get opacity from transfer function
+        float opacity = getTF2DOpacity(val, gradient.magnitude);
+
+        glm::vec3 color = m_config.TF2DColor;
+
+        if (m_config.volumeShading) {
+            // compute shading
+            glm::vec3 lightVector = m_pCamera->position() - samplePos;
+            glm::vec3 cameraVector = m_pCamera->position() - samplePos;
+            color = computePhongShading(m_config.TF2DColor, gradient, lightVector, cameraVector);
+        }
+
+        accumulatedColor = opacity * color + (1 - opacity) * accumulatedColor;
+    }
+
+    return glm::vec4(accumulatedColor, 1.0f);
 }
 
 // ======= TODO: IMPLEMENT ========
@@ -327,6 +348,18 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 // The 2D transfer function settings can be accessed through m_config.TF2DIntensity and m_config.TF2DRadius.
 float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
+    float tfIntensity = m_config.TF2DIntensity;
+    float tfRadius = m_config.TF2DRadius / 255.0f;
+
+    // Levoy's isovalue contour surface
+    if (gradientMagnitude == 0.0f && intensity == tfIntensity) {
+        return 1.0f;
+    }
+
+    if (gradientMagnitude >= 0.0f && intensity - tfRadius * gradientMagnitude <= tfIntensity && tfIntensity <= intensity + tfRadius * gradientMagnitude) {
+        return 1.0f - (glm::abs((tfIntensity - intensity) / gradientMagnitude)) / tfRadius;
+    }
+
     return 0.0f;
 }
 
