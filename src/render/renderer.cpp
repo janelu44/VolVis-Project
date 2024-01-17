@@ -184,8 +184,8 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
         if (val > m_config.isoValue) {
             float bisectionT = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
             samplePos = ray.origin + bisectionT * ray.direction;
-            glm::vec3 lightVector = m_pCamera->position() - samplePos;
-            glm::vec3 cameraVector = m_pCamera->position() - samplePos;
+            glm::vec3 lightVector = samplePos - m_pCamera->position();
+            glm::vec3 cameraVector = samplePos - m_pCamera->position();
             glm::vec3 color = m_config.volumeShading ? computePhongShading(isoColor, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector) : glm::vec3(0.0f);
             return glm::vec4(color, 1.0f); 
         }
@@ -246,7 +246,7 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
     glm::vec3 ambientColor = ka * (lightColor * color);
 
     // compute diffuse term
-    glm::vec3 diffuseColor = kd * (lightColor * color) * glm::dot(glm::normalize(-L), glm::normalize(gradient.dir));
+    glm::vec3 diffuseColor = kd * (lightColor * color) * glm::dot(glm::normalize(L), glm::normalize(gradient.dir));
     diffuseColor = glm::clamp(diffuseColor, glm::vec3(0.0f), glm::vec3(1.0f));
 
     // compute specular term
@@ -280,8 +280,8 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 
         if (m_config.volumeShading) {
             // compute shading
-            glm::vec3 lightVector = m_pCamera->position() - samplePos;
-            glm::vec3 cameraVector = m_pCamera->position() - samplePos;
+            glm::vec3 lightVector = samplePos - m_pCamera->position();
+            glm::vec3 cameraVector = samplePos - m_pCamera->position();
             color = computePhongShading(color, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector); 
         }
 
@@ -328,8 +328,8 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 
         if (m_config.volumeShading) {
             // compute shading
-            glm::vec3 lightVector = m_pCamera->position() - samplePos;
-            glm::vec3 cameraVector = m_pCamera->position() - samplePos;
+            glm::vec3 lightVector = samplePos - m_pCamera->position();
+            glm::vec3 cameraVector = samplePos - m_pCamera->position();
             color = computePhongShading(m_config.TF2DColor, gradient, lightVector, cameraVector);
         }
 
@@ -348,18 +348,37 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 // The 2D transfer function settings can be accessed through m_config.TF2DIntensity and m_config.TF2DRadius.
 float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
+    //m_pGradientVolume->maxMagnitude
+    //float tfIntensity = m_config.TF2DIntensity;
+    //float tfRadius = m_config.TF2DRadius / 255.0f;
+
+    //// Levoy's isovalue contour surface
+    //if (gradientMagnitude == 0.0f && intensity == tfIntensity) {
+    //    return 1.0f;
+    //}
+
+    //if (gradientMagnitude >= 0.0f && intensity - tfRadius * gradientMagnitude <= tfIntensity && tfIntensity <= intensity + tfRadius * gradientMagnitude) {
+    //    return 1.0f - (glm::abs((tfIntensity - intensity) / gradientMagnitude)) / tfRadius;
+    //}
+
+    //return 0.0f;
     float tfIntensity = m_config.TF2DIntensity;
-    float tfRadius = m_config.TF2DRadius / 255.0f;
+    float tfRadius = m_config.TF2DRadius;
 
-    // Levoy's isovalue contour surface
-    if (gradientMagnitude == 0.0f && intensity == tfIntensity) {
-        return 1.0f;
+    glm::vec2 left = glm::vec2(tfIntensity - tfRadius, m_pGradientVolume->maxMagnitude());
+    glm::vec2 right = glm::vec2(tfIntensity + tfRadius, m_pGradientVolume->maxMagnitude());
+    glm::vec2 bottom = glm::vec2(tfIntensity, m_pGradientVolume->minMagnitude());
+    glm::vec2 point = glm::vec2(intensity, gradientMagnitude);
+
+    float denominator = (right.y - bottom.y) * (left.x - bottom.x) + (bottom.x - right.x) * (left.y - bottom.y);
+
+    float alpha = ((right.y - bottom.y) * (point.x - bottom.x) + (bottom.x - right.x) * (point.y - bottom.y)) / denominator;
+    float beta = ((bottom.y - left.y) * (point.x - bottom.x) + (left.x - bottom.x) * (point.y - bottom.y)) / denominator;
+    float gamma = 1.0f - alpha - beta;
+
+    if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+        return 1.0f - glm::abs(tfIntensity - intensity) / tfRadius;
     }
-
-    if (gradientMagnitude >= 0.0f && intensity - tfRadius * gradientMagnitude <= tfIntensity && tfIntensity <= intensity + tfRadius * gradientMagnitude) {
-        return 1.0f - (glm::abs((tfIntensity - intensity) / gradientMagnitude)) / tfRadius;
-    }
-
     return 0.0f;
 }
 
