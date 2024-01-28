@@ -175,7 +175,7 @@ glm::vec4 Renderer::traceRayMIP(const Ray& ray, float sampleStep) const
 // Use the bisectionAccuracy function (to be implemented) to get a more precise isosurface location between two steps.
 glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 {
-    static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
+    static constexpr glm::vec3 isoColor { 1.0f, 1.0f, 1.0f };
     
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
@@ -242,23 +242,62 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
     float shininess = 20.0f;
 
     // ambient term
-    float ambient = ka;
+    //float ambient = ka;
+
+
+    ////////////////////
+
+
+    glm::vec3 blueColor(0.0f, 0.0f, 0.70f);
+    glm::vec3 yellowColor(0.3f, 0.3f, 0.0f);
+
+    // Define the colors for warm and cool tones
+    float alpha = 0.25f;
+    float beta = 0.55f;
+    const glm::vec3 cool = blueColor + alpha * kd;
+    const glm::vec3 warm = yellowColor + beta * kd;
+
+    glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 rightVector = glm::cross(worldUpVector, V);
+
+    // Calculate light intensities
+    glm::vec3 light1 = 0.5f * (warm - cool);
+    glm::vec3 light2 = 0.5f * (cool - warm);
+    glm::vec3 ambient = 0.5f * (cool + warm);
+
+    // Calculate the shading terms
+    float cosTheta1 = glm::dot(glm::normalize(-rightVector), glm::normalize(gradient.dir));
+    float diffuse1 = glm::max(0.0f, cosTheta1);
+
+    float cosTheta2 = glm::dot(glm::normalize(rightVector), glm::normalize(gradient.dir));
+    float diffuse2 = glm::max(0.0f, cosTheta2);
+
+    // Combine the shading terms
+    glm::vec3 shading = ambient + light1 * diffuse1 + light2 * diffuse2;
+
+    return shading * color;
+
+
+
+    /////////////////
+
+
 
     // diffuse term
-    float cosTheta = glm::dot(glm::normalize(L), glm::normalize(gradient.dir));
-    float diffuse = kd * cosTheta;
-    if (diffuse <= 0.0f) {
-        diffuse = 0.0f;
-    }
+    //float cosTheta = glm::dot(glm::normalize(L), glm::normalize(gradient.dir));
+    //float diffuse = kd * cosTheta;
+    //if (diffuse <= 0.0f) {
+       // diffuse = 0.0f;
+    //}
 
     // specular term
-    float cosPhi = glm::dot(glm::normalize(glm::reflect(L, gradient.dir)), glm::normalize(V));
-    float specular = ks * glm::pow(cosPhi, shininess);
-    if (specular <= 0.0f) {
-        specular = 0.0f;
-    }
+    //float cosPhi = glm::dot(glm::normalize(glm::reflect(L, gradient.dir)), glm::normalize(V));
+    //float specular = ks * glm::pow(cosPhi, shininess);
+    //if (specular <= 0.0f) {
+        //specular = 0.0f;
+   // }
 
-    return (ambient + diffuse + specular) * color;
+    //return (ambient + diffuse + specular) * color;
 }
 
 // Calculate tone shading
