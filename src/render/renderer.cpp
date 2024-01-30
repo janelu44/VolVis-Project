@@ -183,6 +183,14 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
         const float val = m_pVolume->getSampleInterpolate(samplePos);
         if (val > m_config.isoValue) {
+            if (m_config.volumeShading)
+                return glm::vec4(
+                    computePhongShading(
+                        isoColor,
+                        m_pGradientVolume->getGradientInterpolate(samplePos),
+                        m_pCamera->position(),
+                        ray.direction),
+                    1.0f);
             return glm::vec4(isoColor, 1.0f);
         }
     }
@@ -208,7 +216,13 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 // You are free to choose any specular power that you'd like.
 glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
 {
-    return glm::vec3(0.0f);
+    const auto k = glm::vec3(0.1f, 0.7f, 0.2f);
+    const float alpha = 100.0f;
+
+    auto cos_theta = glm::max(0.0f, glm::dot(glm::normalize(-L), glm::normalize(gradient.dir)));
+    auto cos_phi = glm::max(0.0f, glm::dot(glm::normalize(glm::reflect(-L, gradient.dir)), glm::normalize(V)));
+
+    return glm::dot(k, glm::vec3(1.0f, cos_theta, glm::pow(cos_phi, alpha))) * color;
 }
 
 // ======= TODO: IMPLEMENT ========
