@@ -334,8 +334,12 @@ float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
     const float maxDistance = normalizedMagnitude * (m_config.TF2DIntensity + m_config.TF2DRadius);
     const float distance = glm::abs(intensity - m_config.TF2DIntensity);
 
+    if (distance == 0.0f && maxDistance == 0.0f)
+        return 1.0f;
+
     if (distance < maxDistance)
         return 1.0f - (distance / maxDistance);
+
     return 0.0f;
 }
 
