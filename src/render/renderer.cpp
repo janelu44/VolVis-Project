@@ -183,10 +183,10 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
         const float val = m_pVolume->getSampleInterpolate(samplePos);
         if (val > m_config.isoValue) {
             float bisectionT = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
-            samplePos = ray.origin + bisectionT * ray.direction;
-            glm::vec3 lightVector = samplePos - m_pCamera->position();
-            glm::vec3 cameraVector = samplePos - m_pCamera->position();
-            glm::vec3 color = m_config.volumeShading ? computePhongShading(isoColor, m_pGradientVolume->getGradientInterpolate(samplePos), lightVector, cameraVector) : isoColor;
+            glm::vec3 bisectionPos = ray.origin + bisectionT * ray.direction;
+            glm::vec3 lightVector = m_pCamera->position();
+            glm::vec3 cameraVector = ray.direction;
+            glm::vec3 color = m_config.volumeShading ? computePhongShading(isoColor, m_pGradientVolume->getGradientInterpolate(bisectionPos), lightVector, cameraVector) : isoColor;
             return glm::vec4(color, 1.0f); 
         }
     }
@@ -283,7 +283,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 
         if (m_config.volumeShading) {
             // compute shading
-            tfColor = computePhongShading(tfColor, m_pGradientVolume->getGradientInterpolate(samplePos), ray.direction, ray.direction); 
+            tfColor = computePhongShading(tfColor, m_pGradientVolume->getGradientInterpolate(samplePos), m_pCamera->position(), ray.direction); 
         }
 
         // pre-multiply with opacity
@@ -332,7 +332,7 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 
         if (m_config.volumeShading) {
             // compute shading
-            tfColor = computePhongShading(tfColor, gradient, ray.direction, ray.direction);
+            tfColor = computePhongShading(tfColor, gradient, m_pCamera->position(), ray.direction);
         }
 
         // pre-multiply with opacity
