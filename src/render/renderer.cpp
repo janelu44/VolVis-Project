@@ -330,18 +330,12 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 // The 2D transfer function settings can be accessed through m_config.TF2DIntensity and m_config.TF2DRadius.
 float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
-    float tfIntensity = m_config.TF2DIntensity;
-    float tfRadius = m_config.TF2DRadius / 255.0f;
+    const float normalizedMagnitude = gradientMagnitude / m_pGradientVolume->maxMagnitude();
+    const float maxDistance = normalizedMagnitude * (m_config.TF2DIntensity + m_config.TF2DRadius);
+    const float distance = glm::abs(intensity - m_config.TF2DIntensity);
 
-    // Levoy's isovalue contour surface
-    if (gradientMagnitude == 0.0f && intensity == tfIntensity) {
-        return 1.0f;
-    }
-
-    if (gradientMagnitude >= 0.0f && intensity - tfRadius * gradientMagnitude <= tfIntensity && tfIntensity <= intensity + tfRadius * gradientMagnitude) {
-        return 1.0f - (glm::abs((tfIntensity - intensity) / gradientMagnitude)) / tfRadius;
-    }
-
+    if (distance < maxDistance)
+        return 1.0f - (distance / maxDistance);
     return 0.0f;
 }
 
