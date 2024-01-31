@@ -177,7 +177,6 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 {
     static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
 
-    // Incrementing samplePos directly instead of recomputing it each frame gives a measureable speed-up.
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
@@ -205,14 +204,13 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 // iterations such that it does not get stuck in degerate cases.
 float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const
 {
-    const auto errorThreshold = 0.01f;
-    const auto maxIterations = 10;
+    const int maxIterations = m_config.bisection ? m_config.bisectionMaxIterations : 0;
 
     float lo = t0, t = t1, hi = t1;
     for (auto i = 0; i < maxIterations; i++) {
         auto t = (lo + hi) / 2.0f;
         const auto val = m_pVolume->getSampleInterpolate(ray.origin + t * ray.direction);
-        if (glm::abs(val - isoValue) < errorThreshold)
+        if (glm::abs(val - isoValue) < m_config.bisectionErrorThreshold)
             return t;
         if (val > isoValue)
             hi = t;
@@ -246,9 +244,6 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 // Use getTFValue to compute the color for a given volume value according to the 1D transfer function.
 glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 {
-    const float earlyRayTermination = 0.99f;
-
-    // Incrementing samplePos directly instead of recomputing it each frame gives a measureable speed-up.
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
 
@@ -272,7 +267,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 
         color += (1 - color.w) * tfColor;
 
-        if (color.w > earlyRayTermination)
+        if (color.w > m_config.earlyRayTerminationThreshold)
             return color;
     }
 
@@ -295,9 +290,6 @@ glm::vec4 Renderer::getTFValue(float val) const
 // Use the getTF2DOpacity function that you implemented to compute the opacity according to the 2D transfer function.
 glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 {
-    const float earlyRayTermination = 0.99f;
-
-    // Incrementing samplePos directly instead of recomputing it each frame gives a measureable speed-up.
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
 
@@ -322,7 +314,7 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 
         color += (1.0f - color.w) * tfColor;
 
-        if (color.w > earlyRayTermination)
+        if (color.w > m_config.earlyRayTerminationThreshold)
             return color;
     }
 

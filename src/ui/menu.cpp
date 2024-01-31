@@ -154,6 +154,18 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::RadioButton("Linear", pInterpolationModeInt, int(volume::InterpolationMode::Linear));
         ImGui::RadioButton("TriCubic", pInterpolationModeInt, int(volume::InterpolationMode::Cubic));
 
+        ImGui::NewLine();
+
+        ImGui::Text("Bisection algorithm:");
+        ImGui::Checkbox("Enable", &m_renderConfig.bisection);
+        ImGui::SliderFloat("Error threshold", &m_renderConfig.bisectionErrorThreshold, 0.01f, 1.0f, "%.2f");
+        ImGui::SliderInt("Max iterations", &m_renderConfig.bisectionMaxIterations, 1, 100);
+
+        ImGui::NewLine();
+
+        ImGui::Text("Compositing:");
+        ImGui::SliderFloat("Early ray termination", &m_renderConfig.earlyRayTerminationThreshold, 0.0f, 1.0f, "%.2f");
+
         ImGui::EndTabItem();
     }
 }

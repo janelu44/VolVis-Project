@@ -21,6 +21,12 @@ struct RenderConfig {
     bool volumeShading { false };
     float isoValue { 95.0f };
 
+    bool bisection { false };
+    float bisectionErrorThreshold { 0.01f };
+    int bisectionMaxIterations { 20 };
+
+    float earlyRayTerminationThreshold { 0.99f };
+
     // 1D transfer function.
     std::array<glm::vec4, 256> tfColorMap;
     // Used to convert from a value to an index in the color map.
