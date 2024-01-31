@@ -21,7 +21,7 @@ struct RenderConfig {
     bool volumeShading { false };
     float isoValue { 95.0f };
 
-    bool bisection { false };
+    bool bisection { true };
     float bisectionErrorThreshold { 0.01f };
     int bisectionMaxIterations { 20 };
 
