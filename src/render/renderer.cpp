@@ -292,7 +292,36 @@ glm::vec4 Renderer::getTFValue(float val) const
 // Use the getTF2DOpacity function that you implemented to compute the opacity according to the 2D transfer function.
 glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 {
-    return glm::vec4(0.0f);
+    // Incrementing samplePos directly instead of recomputing it each frame gives a measureable speed-up.
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    const glm::vec3 increment = sampleStep * ray.direction;
+
+    auto color = glm::vec4(0);
+
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+        const auto gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+
+        auto tfValue = m_config.TF2DColor * getTF2DOpacity(val, gradient.magnitude);
+
+        if (m_config.volumeShading)
+            tfValue = glm::vec4(
+                computePhongShading(
+                    tfValue,
+                    gradient,
+                    m_pCamera->position(),
+                    ray.direction),
+                tfValue.w);
+
+        const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
+
+        color += (1 - color.w) * tfColor;
+
+        if (color.w > 0.99)
+            return color;
+    }
+
+    return color;
 }
 
 // ======= TODO: IMPLEMENT ========
@@ -304,6 +333,18 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 // The 2D transfer function settings can be accessed through m_config.TF2DIntensity and m_config.TF2DRadius.
 float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
+    float tfIntensity = m_config.TF2DIntensity;
+    float tfRadius = m_config.TF2DRadius / 255.0f;
+
+    // Levoy's isovalue contour surface
+    if (gradientMagnitude == 0.0f && intensity == tfIntensity) {
+        return 1.0f;
+    }
+
+    if (gradientMagnitude >= 0.0f && intensity - tfRadius * gradientMagnitude <= tfIntensity && tfIntensity <= intensity + tfRadius * gradientMagnitude) {
+        return 1.0f - (glm::abs((tfIntensity - intensity) / gradientMagnitude)) / tfRadius;
+    }
+
     return 0.0f;
 }
 
