@@ -121,7 +121,6 @@ float Volume::getSampleNearestNeighbourInterpolation(const glm::vec3& coord) con
 // This function returns the trilinear interpolated value at the continuous 3D position given by coord.
 float Volume::getSampleTriLinearInterpolation(const glm::vec3& coord) const
 {
-    // check if the coordinate is within volume boundaries, since we only look at direct neighbours we only need to check within 0.5
     if (glm::any(glm::lessThan(coord, glm::vec3(0))) || glm::any(glm::greaterThanEqual(coord + 1.0f, glm::vec3(m_dim))))
         return 0.0f;
 
@@ -131,8 +130,7 @@ float Volume::getSampleTriLinearInterpolation(const glm::vec3& coord) const
     return linearInterpolate(
         biLinearInterpolate(glm::vec2(coord), lo),
         biLinearInterpolate(glm::vec2(coord), hi),
-        factor
-    );
+        factor);
 }
 
 // This function linearly interpolates the value at X using incoming values g0 and g1 given a factor (equal to the positon of x in 1D)
@@ -153,8 +151,7 @@ float Volume::biLinearInterpolate(const glm::vec2& xyCoord, int z) const
     return linearInterpolate(
         linearInterpolate(getVoxel(lo.x, lo.y, z), getVoxel(hi.x, lo.y, z), factor.x),
         linearInterpolate(getVoxel(lo.x, hi.y, z), getVoxel(hi.x, hi.y, z), factor.x),
-        factor.y
-    );
+        factor.y);
 }
 
 
