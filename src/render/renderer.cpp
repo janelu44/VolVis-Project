@@ -208,7 +208,7 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 
     float lo = t0, t = t1, hi = t1;
     for (auto i = 0; i < maxIterations; i++) {
-        auto t = (lo + hi) / 2.0f;
+        t = (lo + hi) / 2.0f;
         const auto val = m_pVolume->getSampleInterpolate(ray.origin + t * ray.direction);
         if (glm::abs(val - isoValue) < m_config.bisectionErrorThreshold)
             return t;
