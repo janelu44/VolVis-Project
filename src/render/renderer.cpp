@@ -265,7 +265,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 
         const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
 
-        color += (1 - color.w) * tfColor;
+        color += (1.0f - color.w) * tfColor;
 
         if (color.w > m_config.earlyRayTerminationThreshold)
             return color;
