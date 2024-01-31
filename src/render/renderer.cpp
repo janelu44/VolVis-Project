@@ -188,7 +188,7 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
                     computePhongShading(
                         isoColor,
                         m_pGradientVolume->getGradientInterpolate(bisectedPos),
-                        m_pCamera->position(),
+                        m_pCamera->position() - bisectedPos,
                         -ray.direction),
                     1.0f);
             return glm::vec4(isoColor, 1.0f);
@@ -259,7 +259,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
                 computePhongShading(
                     tfValue,
                     m_pGradientVolume->getGradientInterpolate(samplePos),
-                    m_pCamera->position(),
+                    m_pCamera->position() - samplePos,
                     -ray.direction),
                 tfValue.w);
 
@@ -306,7 +306,7 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
                 computePhongShading(
                     tfValue,
                     gradient,
-                    m_pCamera->position(),
+                    m_pCamera->position() - samplePos,
                     -ray.direction),
                 tfValue.w);
 
