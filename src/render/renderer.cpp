@@ -299,7 +299,8 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
         const float val = m_pVolume->getSampleInterpolate(samplePos);
         const auto gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
 
-        auto tfValue = m_config.TF2DColor * getTF2DOpacity(val, gradient.magnitude);
+        auto tfValue = m_config.TF2DColor;
+        tfValue.w *= getTF2DOpacity(val, gradient.magnitude);
 
         if (m_config.volumeShading)
             tfValue = glm::vec4(
@@ -331,7 +332,7 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
     const float normalizedMagnitude = gradientMagnitude / m_pGradientVolume->maxMagnitude();
-    const float maxDistance = normalizedMagnitude * (m_config.TF2DIntensity + m_config.TF2DRadius);
+    const float maxDistance = normalizedMagnitude * m_config.TF2DRadius;
     const float distance = glm::abs(intensity - m_config.TF2DIntensity);
 
     if (distance == 0.0f && maxDistance == 0.0f)
