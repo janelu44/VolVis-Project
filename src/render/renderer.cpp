@@ -183,11 +183,12 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
         const float val = m_pVolume->getSampleInterpolate(samplePos);
         if (val > m_config.isoValue) {
+            const auto bisectedPos = samplePos - (t - bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue)) * ray.direction;
             if (m_config.volumeShading)
                 return glm::vec4(
                     computePhongShading(
                         isoColor,
-                        m_pGradientVolume->getGradientInterpolate(samplePos),
+                        m_pGradientVolume->getGradientInterpolate(bisectedPos),
                         m_pCamera->position(),
                         ray.direction),
                     1.0f);
@@ -204,7 +205,21 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 // iterations such that it does not get stuck in degerate cases.
 float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const
 {
-    return 0.0f;
+    const auto maxIterations = 10;
+
+    float lo = t0, t = t1, hi = t1;
+    for (auto i = 0; i < maxIterations; i++) {
+        auto t = (lo + hi) / 2.0f;
+        const auto val = m_pVolume->getSampleInterpolate(ray.origin + t * ray.direction);
+        if (glm::abs(val - isoValue) < 0.01f)
+            return t;
+        if (val > isoValue)
+            hi = t;
+        if (val < isoValue)
+            lo = t;
+    }
+
+    return t;
 }
 
 // ======= TODO: IMPLEMENT ========
