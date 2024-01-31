@@ -190,7 +190,7 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
                         isoColor,
                         m_pGradientVolume->getGradientInterpolate(bisectedPos),
                         m_pCamera->position(),
-                        ray.direction),
+                        -ray.direction),
                     1.0f);
             return glm::vec4(isoColor, 1.0f);
         }
@@ -262,7 +262,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
                     tfValue,
                     m_pGradientVolume->getGradientInterpolate(samplePos),
                     m_pCamera->position(),
-                    ray.direction),
+                    -ray.direction),
                 tfValue.w);
 
         const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
@@ -310,7 +310,7 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
                     tfValue,
                     gradient,
                     m_pCamera->position(),
-                    ray.direction),
+                    -ray.direction),
                 tfValue.w);
 
         const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
