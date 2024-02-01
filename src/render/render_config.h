@@ -19,6 +19,8 @@ struct RenderConfig {
     glm::ivec2 renderResolution;
 
     bool volumeShading { false };
+    bool toneShading { false };
+    bool approxToneShading { false };
     float isoValue { 95.0f };
 
     bool bisection { true };

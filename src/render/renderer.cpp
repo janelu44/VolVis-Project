@@ -175,7 +175,7 @@ glm::vec4 Renderer::traceRayMIP(const Ray& ray, float sampleStep) const
 // Use the bisectionAccuracy function (to be implemented) to get a more precise isosurface location between two steps.
 glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 {
-    static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
+    static constexpr glm::vec3 isoColor { 0.7f, 0.3f, 0.5f };
 
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
@@ -183,7 +183,7 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
         const float val = m_pVolume->getSampleInterpolate(samplePos);
         if (val > m_config.isoValue) {
             const auto bisectedPos = samplePos - (t - bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue)) * ray.direction;
-            if (m_config.volumeShading)
+            if (m_config.volumeShading) {
                 return glm::vec4(
                     computePhongShading(
                         isoColor,
@@ -191,6 +191,12 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
                         m_pCamera->position() - bisectedPos,
                         -ray.direction),
                     1.0f);
+            } else if (m_config.toneShading) {
+                return glm::vec4(computeToneShading(m_pGradientVolume->getGradientInterpolate(bisectedPos), m_pCamera->position() - bisectedPos, -ray.direction), 1.0f);
+            } else if (m_config.approxToneShading) {
+                return glm::vec4(approxToneShading(isoColor, m_pGradientVolume->getGradientInterpolate(bisectedPos), m_pCamera->position() - bisectedPos, -ray.direction), 1.0f);
+            }
+            
             return glm::vec4(isoColor, 1.0f);
         }
     }
@@ -229,7 +235,7 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 // Use the given color for the ambient/specular/diffuse (you are allowed to scale these constants by a scalar value).
 // You are free to choose any specular power that you'd like.
 glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
-{
+{   
     const auto k = glm::vec3(0.1f, 0.7f, 0.2f);
     const float alpha = 100.0f;
 
@@ -238,6 +244,84 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 
     return glm::dot(k, glm::vec3(1.0f, cosTheta, glm::pow(cosPhi, alpha))) * color;
 }
+
+// This function computes tone shading 
+glm::vec3 Renderer::computeToneShading(const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V) {
+    
+    // Blue and yellow colors. Adjust values to your case to determine the strength of temperature shift. 
+    glm::vec3 blueColor(0.0f, 0.0f, 0.7f);
+    glm::vec3 yellowColor(0.4f, 0.4f, 0.0f);
+
+    // These can be adjusted to your case.
+    float kd = 0.7f;
+    float ka = 0.1f;
+
+    // Proeminence of object color and luminance strength. These can be adjusted to your case.
+    float alpha = 0.25f;
+    float beta = 0.55f;
+
+    // Tone creation
+    const glm::vec3 cool = blueColor + alpha * kd;
+    const glm::vec3 warm = yellowColor + beta * kd;
+
+    // The light vector should be perpendicular to the gaze vector in order for the dot product between light and normal to fully vary between [-1,1].
+    glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 lightVector = glm::cross(worldUpVector, glm::normalize(V));
+
+    // Since we want a full variation between [-1,1], I will not cap the value of the dot product to 0. 
+    float cosTheta = glm::dot(glm::normalize(lightVector), glm::normalize(gradient.dir));
+    
+    // In case you want to add some ambient light (it will make the image lighter) uncomment the next line and comment the penultimate one. 
+    //const glm::vec3 pixelColor = ka + ((((1 + cosTheta) / 2) * cool) + ((1 - ((1 + cosTheta) / 2)) * warm)); 
+    const glm::vec3 pixelColor = ((((1 + cosTheta) / 2) * cool) + ((1 - ((1 + cosTheta) / 2)) * warm));
+    return pixelColor;
+}
+
+
+glm::vec3 Renderer::approxToneShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V) {
+    
+    // define Phong constants
+    //float ka = 0.1f;
+    float kd = 0.7f;
+    //float ks = 0.2f;
+    //float shininess = 20.0f;
+
+    // ambient term
+    //float ambient = ka;
+
+    ////////////////////
+
+    glm::vec3 blueColor(0.0f, 0.0f, 0.7f);
+    glm::vec3 yellowColor(0.4f, 0.4f, 0.0f);
+
+    // Define the colors for warm and cool tones
+    float alpha = 0.25f;
+    float beta = 0.55f;
+    const glm::vec3 cool = blueColor + alpha * kd;
+    const glm::vec3 warm = yellowColor + beta * kd;
+
+    glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 rightVector = glm::cross(worldUpVector, glm::normalize(V));
+
+    // Calculate light intensities
+    glm::vec3 light1 = 0.5f * (warm - cool);
+    glm::vec3 light2 = 0.5f * (cool - warm);
+    glm::vec3 ambient = 0.5f * (cool + warm);
+
+    // Calculate the shading terms
+    float cosTheta1 = glm::dot(glm::normalize(-rightVector), glm::normalize(gradient.dir));
+    float diffuse1 = glm::max(0.0f, cosTheta1);
+
+    float cosTheta2 = glm::dot(glm::normalize(rightVector), glm::normalize(gradient.dir));
+    float diffuse2 = glm::max(0.0f, cosTheta2);
+
+    // Combine the shading terms
+    glm::vec3 shading = ambient + light1 * diffuse1 + light2 * diffuse2;
+
+    return shading * color;
+
+}
+
 
 // ======= TODO: IMPLEMENT ========
 // In this function, implement 1D transfer function raycasting.
@@ -254,7 +338,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 
         auto tfValue = getTFValue(val);
 
-        if (m_config.volumeShading)
+        if (m_config.volumeShading) {
             tfValue = glm::vec4(
                 computePhongShading(
                     tfValue,
@@ -262,7 +346,14 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
                     m_pCamera->position() - samplePos,
                     -ray.direction),
                 tfValue.w);
-
+        } else if (m_config.toneShading) {
+            tfValue = glm::vec4(
+                computeToneShading(
+                    m_pGradientVolume->getGradientInterpolate(samplePos),
+                    m_pCamera->position() - samplePos,
+                    -ray.direction),
+                tfValue.w);
+        }
         const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
 
         color += (1.0f - color.w) * tfColor;
@@ -302,7 +393,7 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
         auto tfValue = m_config.TF2DColor;
         tfValue.w *= getTF2DOpacity(val, gradient.magnitude);
 
-        if (m_config.volumeShading)
+        if (m_config.volumeShading) {
             tfValue = glm::vec4(
                 computePhongShading(
                     tfValue,
@@ -310,7 +401,14 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
                     m_pCamera->position() - samplePos,
                     -ray.direction),
                 tfValue.w);
-
+        } else if (m_config.toneShading) {
+            tfValue = glm::vec4(
+                computeToneShading(
+                    gradient,
+                    m_pCamera->position() - samplePos,
+                    -ray.direction),
+                tfValue.w);
+        }
         const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
 
         color += (1.0f - color.w) * tfColor;

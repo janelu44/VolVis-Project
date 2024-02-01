@@ -136,6 +136,8 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::NewLine();
 
         ImGui::Checkbox("Volume Shading", &m_renderConfig.volumeShading);
+        ImGui::Checkbox("Tone Shading", &m_renderConfig.toneShading);
+        ImGui::Checkbox("Approx Tone Shading", &m_renderConfig.approxToneShading);
 
         ImGui::NewLine();
 
