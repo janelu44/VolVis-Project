@@ -113,6 +113,10 @@ void Renderer::render()
                 color = traceRayComposite(ray, sampleStep);
                 break;
             }
+            case RenderMode::RenderCompositeEnhancedOp: {
+                color = traceRayCompositeEnhancedOp(ray, sampleStep);
+                break;
+            }
             case RenderMode::RenderIso: {
                 color = traceRayISO(ray, sampleStep);
                 break;
@@ -266,7 +270,8 @@ glm::vec3 Renderer::approxToneShading(const glm::vec3& color, const volume::Grad
     const glm::vec3 cool = blueColor + alpha * kd;
     const glm::vec3 warm = yellowColor + beta * kd;
 
-    // Calculate light vector which is perpendicular to the gaze 
+    // Calculate light vector which is perpendicular to the gaze (using the gradient of the surface doesn't give good results, so I take a world vector).
+    // This vector direction can be adjusted as needed. 
     glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 lightVector = glm::cross(worldUpVector, glm::normalize(V));
 
@@ -291,6 +296,9 @@ glm::vec3 Renderer::approxToneShading(const glm::vec3& color, const volume::Grad
 
 
 // This function computes tone shading by approximating it using the Phong model and adds highlights
+// Tone shading is primarily based on the diffuse terms. The paper doesn't include highlights in their phong approximation.
+// Paper mentiones that highlights could be added on systems with accumulation buffers
+// So this is just an extra addition from my side just to check how it looks like (it is not supposed to give better results than the standard tone shading)
 glm::vec3 Renderer::approxToneShadingHighlights(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
 {
 
@@ -311,7 +319,7 @@ glm::vec3 Renderer::approxToneShadingHighlights(const glm::vec3& color, const vo
     const glm::vec3 cool = blueColor + alpha * kd;
     const glm::vec3 warm = yellowColor + beta * kd;
 
-    // Calculate light vector which is perpendicular to the gaze
+    // Calculate light vector which is perpendicular to the gaze (using the gradient of the surface doesn't give good results, so I take a world vector)
     glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 lightVector = glm::cross(worldUpVector, glm::normalize(V));
 
@@ -395,6 +403,11 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
 
         auto tfValue = getTFValue(val);
 
+        //const volume::GradientVoxel& gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+        //double power = glm::pow(gradient.magnitude, 0.3);
+        //float opacity = tfValue.w * (0.2 + 1.1 * power);
+        
+
         if (m_config.volumeShading) {
             tfValue = glm::vec4(
                 computePhongShading(
@@ -429,6 +442,78 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
                 tfValue.w);
         }
         const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
+
+        color += (1.0f - color.w) * tfColor;
+
+        if (color.w > m_config.earlyRayTerminationThreshold)
+            return color;
+    }
+
+    return color;
+}
+
+// 1D Transfer function raycasting with enhanced boundaries based on gradient magnitude
+glm::vec4 Renderer::traceRayCompositeEnhancedOp(const Ray& ray, float sampleStep) const
+{
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    const glm::vec3 increment = sampleStep * ray.direction;
+
+    auto color = glm::vec4(0.0f);
+
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+
+        auto tfValue = getTFValue(val);
+
+        // Calculate gradient + final opacity value. Kgc, Kgs, Kge can be adjusted as needed. A higher Kgs will define boundaries even better, but will darken the inside of the fish.
+        const volume::GradientVoxel& gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+        double power = glm::pow(gradient.magnitude, 0.3);
+        float opacity = tfValue.w * (0.2 + 1.4 * power);
+        glm::vec4 tfColor;
+
+        if (m_config.volumeShading) {
+            tfValue = glm::vec4(
+                computePhongShading(
+                    tfValue,
+                    m_pGradientVolume->getGradientInterpolate(samplePos),
+                    m_pCamera->position() - samplePos,
+                    -ray.direction),
+                opacity);
+           
+        } else if (m_config.toneShading) {
+            tfValue = glm::vec4(
+                computeToneShading(
+                    tfValue,
+                    m_pGradientVolume->getGradientInterpolate(samplePos),
+                    m_pCamera->position() - samplePos,
+                    -ray.direction),
+                opacity);
+           
+        } else if (m_config.approxToneShading) {
+            tfValue = glm::vec4(
+                approxToneShading(
+                    tfValue,
+                    m_pGradientVolume->getGradientInterpolate(samplePos),
+                    m_pCamera->position() - samplePos,
+                    -ray.direction),
+                opacity);
+            
+        } else if (m_config.approxToneShadingHighlights) {
+            tfValue = glm::vec4(
+                approxToneShadingHighlights(
+                    tfValue,
+                    m_pGradientVolume->getGradientInterpolate(samplePos),
+                    m_pCamera->position() - samplePos,
+                    -ray.direction),
+                opacity);          
+        } 
+            
+            tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 0.8f);
+            // I made multiple alternatives. Uncomment each line to see the differences. This parameter can be adjusted based on your needs.
+            //tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f);
+            //tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 0.6f);
+            //tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 0.4f);
+            //tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), opacity * 5);
 
         color += (1.0f - color.w) * tfColor;
 

@@ -42,6 +42,7 @@ protected:
     glm::vec4 traceRayMIP(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayISO(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayComposite(const Ray& ray, float sampleStep) const;
+    glm::vec4 traceRayCompositeEnhancedOp(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayTF2D(const Ray& ray, float sampleStep) const;
 
     float bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const;

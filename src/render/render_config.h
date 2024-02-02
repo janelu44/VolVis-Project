@@ -11,7 +11,8 @@ enum class RenderMode {
     RenderMIP,
     RenderIso,
     RenderComposite,
-    RenderTF2D
+    RenderTF2D,
+    RenderCompositeEnhancedOp
 };
 
 struct RenderConfig {
@@ -20,6 +21,7 @@ struct RenderConfig {
 
     bool volumeShading { false };
     bool toneShading { false };
+
     bool approxToneShading { false };
     bool approxToneShadingHighlights { false };
     float isoValue { 95.0f };

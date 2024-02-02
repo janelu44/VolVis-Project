@@ -131,6 +131,7 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::RadioButton("MIP", pRenderModeInt, int(render::RenderMode::RenderMIP));
         ImGui::RadioButton("IsoSurface Rendering", pRenderModeInt, int(render::RenderMode::RenderIso));
         ImGui::RadioButton("Compositing", pRenderModeInt, int(render::RenderMode::RenderComposite));
+        ImGui::RadioButton("Compositing with Enhanced Opacity", pRenderModeInt, int(render::RenderMode::RenderCompositeEnhancedOp));
         ImGui::RadioButton("2D Transfer Function", pRenderModeInt, int(render::RenderMode::RenderTF2D));
 
         ImGui::NewLine();
