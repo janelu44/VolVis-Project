@@ -55,7 +55,7 @@ private:
     glm::ivec2 m_baseRenderResolution;
     float m_resolutionScale { 1.0f };
     render::RenderConfig m_renderConfig {};
-    volume::InterpolationMode m_interpolationMode { volume::InterpolationMode::NearestNeighbour };
+    volume::InterpolationMode m_interpolationMode { volume::InterpolationMode::Linear };
 
     std::optional<LoadVolumeCallback> m_optLoadVolumeCallback;
     std::optional<RenderConfigChangedCallback> m_optRenderConfigChangedCallback;

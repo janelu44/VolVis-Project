@@ -11,11 +11,12 @@ enum class RenderMode {
     RenderMIP,
     RenderIso,
     RenderComposite,
-    RenderTF2D
+    RenderTF2D,
+    RenderAmbientOcclusion
 };
 
 struct RenderConfig {
-    RenderMode renderMode { RenderMode::RenderSlicer };
+    RenderMode renderMode { RenderMode::RenderComposite };
     glm::ivec2 renderResolution;
 
     bool volumeShading { false };
@@ -26,6 +27,11 @@ struct RenderConfig {
     int bisectionMaxIterations { 20 };
 
     float earlyRayTerminationThreshold { 0.99f };
+
+    bool ambientOcclusionDebug { false };
+    int ambientOcclusionDebugShellLevel { 1 };
+    int ambientOcclusionMaxShells { 2 };
+    float ambientOcclusionNormalFactor { 0.75f };
 
     // 1D transfer function.
     std::array<glm::vec4, 256> tfColorMap;

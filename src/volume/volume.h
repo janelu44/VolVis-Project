@@ -13,6 +13,12 @@ enum class InterpolationMode {
     Cubic
 };
 
+struct ShellBounds {
+    glm::vec3 lower;
+    glm::vec3 upper;
+};
+
+
 class Volume {
 public:
     // DO NOT REMOVE
@@ -30,6 +36,9 @@ public:
 
     float getSampleInterpolate(const glm::vec3& coord) const;
     float getVoxel(int x, int y, int z) const;
+
+    volume::ShellBounds getShellAroundPoint(glm::vec3 point, glm::vec3 normal, int shellSize) const;
+    bool pointInShell(volume::ShellBounds shell, glm::vec3 point) const;
 
 protected:
     float getSampleNearestNeighbourInterpolation(const glm::vec3& coord) const;

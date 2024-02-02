@@ -132,6 +132,7 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::RadioButton("IsoSurface Rendering", pRenderModeInt, int(render::RenderMode::RenderIso));
         ImGui::RadioButton("Compositing", pRenderModeInt, int(render::RenderMode::RenderComposite));
         ImGui::RadioButton("2D Transfer Function", pRenderModeInt, int(render::RenderMode::RenderTF2D));
+        ImGui::RadioButton("Ambient Occlusion", pRenderModeInt, int(render::RenderMode::RenderAmbientOcclusion));
 
         ImGui::NewLine();
 
@@ -165,6 +166,14 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
 
         ImGui::Text("Compositing:");
         ImGui::SliderFloat("Early ray termination", &m_renderConfig.earlyRayTerminationThreshold, 0.0f, 1.0f, "%.2f");
+
+        ImGui::NewLine();
+
+        ImGui::Text("Ambient Occlusion:");
+        ImGui::SliderInt("Max shells", &m_renderConfig.ambientOcclusionMaxShells, 1, 6);
+        ImGui::SliderFloat("Normal factor", &m_renderConfig.ambientOcclusionNormalFactor, 0.0f, 2.0f, "%.2f");
+        ImGui::Checkbox("Debug", &m_renderConfig.ambientOcclusionDebug);
+        ImGui::SliderInt("Shell debug level", &m_renderConfig.ambientOcclusionDebugShellLevel, 1, 10);
 
         ImGui::EndTabItem();
     }

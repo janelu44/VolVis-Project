@@ -7,6 +7,7 @@
 #include <glm/gtx/component_wise.hpp>
 #include <iostream>
 #include <tbb/blocked_range2d.h>
+#include <tbb/blocked_range3d.h>
 #include <tbb/parallel_for.h>
 #include <tuple>
 
@@ -119,6 +120,10 @@ void Renderer::render()
             }
             case RenderMode::RenderTF2D: {
                 color = traceRayTF2D(ray, sampleStep);
+                break;
+            }
+            case RenderMode::RenderAmbientOcclusion: {
+                color = traceRayAmbientOcclusion(ray, sampleStep);
                 break;
             }
             };
@@ -343,6 +348,156 @@ float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 
     return 0.0f;
 }
+
+glm::vec4 Renderer::traceRayAmbientOcclusion(const Ray& ray, float sampleStep) const
+{
+    /*
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    const glm::vec3 increment = sampleStep * ray.direction;
+
+    auto color = glm::vec4(0.0f);
+
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+
+        float occlusion = getShellAverage(samplePos);
+
+        auto tfValue = getTFValue(val);
+
+        if (m_config.volumeShading)
+            tfValue = glm::vec4(
+                computePhongShading(
+                    tfValue,
+                    m_pGradientVolume->getGradientInterpolate(samplePos),
+                    m_pCamera->position() - samplePos,
+                    -ray.direction),
+                tfValue.w);
+
+        const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f) * occlusion;
+
+        color += (1.0f - color.w) * tfColor;
+
+        if (color.w > m_config.earlyRayTerminationThreshold)
+            return color;
+    }
+
+    return color;
+
+    */
+
+    // OLD
+    glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
+
+    volume::ShellBounds debugOuterShell {};
+    volume::ShellBounds debugInnerShell {};
+
+    glm::vec3 debugSamplePos = ray.origin + ray.tmin * glm::normalize(m_pCamera->forward());
+    glm::vec3 debugIncrement = sampleStep * glm::normalize(m_pCamera->forward());
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, debugSamplePos += debugIncrement) {
+        const float val = m_pVolume->getSampleInterpolate(debugSamplePos);
+        if (val > m_config.isoValue) {
+            const auto bisectedPos = debugSamplePos - (t - bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue)) * ray.direction;
+
+            debugOuterShell = m_pVolume->getShellAroundPoint(bisectedPos, m_pGradientVolume->getGradientInterpolate(bisectedPos).dir, m_config.ambientOcclusionDebugShellLevel);
+            debugInnerShell = m_config.ambientOcclusionDebugShellLevel > 1
+                ? m_pVolume->getShellAroundPoint(bisectedPos, m_pGradientVolume->getGradientInterpolate(bisectedPos).dir, m_config.ambientOcclusionDebugShellLevel - 1)
+                : volume::ShellBounds { bisectedPos, bisectedPos };
+            break;
+        }
+    }
+
+
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    glm::vec3 increment = sampleStep * ray.direction;
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+        if (val > m_config.isoValue) {
+
+            const auto bisectedPos = samplePos - (t - bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue)) * ray.direction;
+            isoColor *= getShellAverage(bisectedPos, m_pGradientVolume->getGradientInterpolate(bisectedPos).dir);
+            if (m_config.ambientOcclusionDebug && m_pVolume->pointInShell(debugOuterShell, bisectedPos) && !m_pVolume->pointInShell(debugInnerShell, bisectedPos)) {
+                isoColor = glm::vec3(1.0f, 0.0f, 0.0f);
+            }
+
+            if (m_config.volumeShading)
+                return glm::vec4(
+                    computePhongShading(
+                        isoColor,
+                        m_pGradientVolume->getGradientInterpolate(bisectedPos),
+                        m_pCamera->position() - bisectedPos,
+                        -ray.direction),
+                    1.0f);
+            return glm::vec4(isoColor, 1.0f);
+        }
+    }
+
+    return glm::vec4(0.0f);
+}
+
+float Renderer::getShellAverage(glm::vec3 center, glm::vec3 gradient) const
+{
+    float average = 1.0f;
+
+    float levelAvg = 0.0f;
+    int levelPoints = 0;
+
+    float prevLevelAvg = 0.0f;
+    int prevLevelPoints = 0;
+
+    for (int s = 1; s <= m_config.ambientOcclusionMaxShells; s++) {
+
+        prevLevelAvg = levelAvg;
+        prevLevelPoints = levelPoints;
+
+        volume::ShellBounds shell = m_pVolume->getShellAroundPoint(center, -glm::normalize(gradient) * m_config.ambientOcclusionNormalFactor, s);
+
+        #ifdef NDEBUG
+        // If NOT in debug mode then enable parallelism using the TBB library (Intel Threaded Building Blocks).
+        #define PARALLELISM 1
+        #else
+        // Disable multi threading in debug mode.
+        #define PARALLELISM 0
+        #endif
+
+        #if PARALLELISM == 0
+            // Regular (single threaded) for loops.
+        for (int x = shell.lower.x; x < shell.upper.x; x++) {
+            for (int y = shell.lower.y; y < shell.upper.y; y++) {
+                for (int z = shell.lower.z; z < shell.upper.z; z++) {
+        #else
+        // Parallel for loop in 3 dimensions
+        const tbb::blocked_range3d<float, float, float> shellRange { shell.lower.z, shell.upper.z, shell.lower.y, shell.upper.y, shell.lower.x, shell.upper.x };
+        tbb::parallel_for(shellRange, [&](tbb::blocked_range3d<float, float, float> localRange) {
+            // Loop over the pixels in a tile. This function is called on multiple threads at the same time.
+            for (float z = std::begin(localRange.pages()); z <= std::end(localRange.pages()); z++) {
+                for (float y = std::begin(localRange.rows()); y <= std::end(localRange.rows()); y++) {
+                    for (float x = std::begin(localRange.cols()); x <= std::end(localRange.cols()); x++) {
+
+        #endif
+                        glm::vec3 pos = glm::vec3(x, y, z);
+                        const float val = m_pVolume->getSampleInterpolate(pos);
+                        levelAvg += getTFValue(val).w;
+                        levelPoints += 1;
+        #if PARALLELISM == 1
+                    }
+                }
+            }
+        });
+        #else
+                }
+            }
+        }
+        #endif
+
+        levelAvg /= levelPoints;
+        float shellAvg = ((levelPoints * levelAvg) - (prevLevelPoints * prevLevelAvg)) / (levelPoints - prevLevelPoints);
+
+        average *= (1 - shellAvg);
+    }
+
+    return average;
+}
+
 
 // This function computes if a ray intersects with the axis-aligned bounding box around the volume.
 // If the ray intersects then tmin/tmax are set to the distance at which the ray hits/exists the

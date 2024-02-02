@@ -43,6 +43,7 @@ protected:
     glm::vec4 traceRayISO(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayComposite(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayTF2D(const Ray& ray, float sampleStep) const;
+    glm::vec4 traceRayAmbientOcclusion(const Ray& ray, float sampleStep) const;
 
     float bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const;
 
@@ -54,6 +55,8 @@ private:
 
     glm::vec4 getTFValue(float val) const;
     float getTF2DOpacity(float val, float gradientMagnitude) const;
+
+    float getShellAverage(glm::vec3 center, glm::vec3 gradient) const;
 
     bool instersectRayVolumeBounds(Ray& ray, const Bounds& volumeBounds) const;
     void fillColor(int x, int y, const glm::vec4& color);

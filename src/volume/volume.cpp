@@ -99,6 +99,25 @@ float Volume::getSampleInterpolate(const glm::vec3& coord) const
     }
 }
 
+volume::ShellBounds Volume::getShellAroundPoint(glm::vec3 point, glm::vec3 normal, int shellLevel) const
+{
+    volume::ShellBounds bounds {};
+
+    glm::vec3 shellSize = glm::vec3(glm::pow(2.0f, shellLevel));
+
+    glm::vec3 normalOffset = normal * shellSize / 2.0f;
+
+    bounds.lower = glm::clamp(glm::floor(point) - shellSize / 2.0f, glm::vec3(0), glm::vec3(m_dim)) + normalOffset;
+    bounds.upper = glm::clamp(glm::ceil(point) + shellSize / 2.0f, glm::vec3(0), glm::vec3(m_dim)) + normalOffset;
+
+    return bounds;
+}
+
+bool Volume::pointInShell(volume::ShellBounds shell, glm::vec3 point) const
+{
+    return glm::all(glm::greaterThanEqual(point, glm::vec3(shell.lower))) && glm::all(glm::lessThanEqual(point, glm::vec3(shell.upper)));
+}
+
 // This function returns the nearest neighbour value at the continuous 3D position given by coord.
 // Notice that in this framework we assume that the distance between neighbouring voxels is 1 in all directions
 float Volume::getSampleNearestNeighbourInterpolation(const glm::vec3& coord) const
