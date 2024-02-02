@@ -270,7 +270,8 @@ glm::vec3 Renderer::approxToneShading(const glm::vec3& color, const volume::Grad
     const glm::vec3 cool = blueColor + alpha * kd;
     const glm::vec3 warm = yellowColor + beta * kd;
 
-    // Calculate light vector which is perpendicular to the gaze (using the gradient of the surface doesn't give good results, so I take a world vector).
+  
+    // Calculate light vector which is perpendicular to the gaze (using the gradient of the surface doesn't give good results, so I take a world vector). Paper suggests to have the light vector perpendicular to the gaze.
     // This vector direction can be adjusted as needed. 
     glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 lightVector = glm::cross(worldUpVector, glm::normalize(V));
@@ -290,6 +291,9 @@ glm::vec3 Renderer::approxToneShading(const glm::vec3& color, const volume::Grad
     // Combine the shading terms
     glm::vec3 shading = ambient + light1 * diffuse1 + light2 * diffuse2;
 
+    // Paper assumes that for the approximation, the color of the object to be set to white
+    // So multiplying with the color here does not make any major change
+    // However you can see the difference if you uncomment first line in traceRayISO => less cool to warm shift => depth/shape not as easy to distinguish.
     return shading * color;
 
 }
@@ -352,7 +356,7 @@ glm::vec3 Renderer::approxToneShadingHighlights(const glm::vec3& color, const vo
 glm::vec3 Renderer::computeToneShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
 {
 
-    // Blue and yellow colors. Adjust values to your case to determine the strength of temperature shift.
+    // Blue and yellow colors. Adjust values to your case to determine the strength of temperature shift. These can be adjusted as needed.
     glm::vec3 blueColor(0.0f, 0.0f, 0.7f);
     glm::vec3 yellowColor(0.4f, 0.4f, 0.0f);
 
@@ -369,6 +373,7 @@ glm::vec3 Renderer::computeToneShading(const glm::vec3& color, const volume::Gra
     const glm::vec3 warm = yellowColor + beta * kd;
 
     // The light vector should be perpendicular to the gaze vector in order for the dot product between light and normal to fully vary between [-1,1], as suggested in the paper.
+    // Vector direction can be adapted as you want.
     glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 lightVector = glm::cross(worldUpVector, glm::normalize(V));
     
@@ -402,11 +407,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
         const float val = m_pVolume->getSampleInterpolate(samplePos);
 
         auto tfValue = getTFValue(val);
-
-        //const volume::GradientVoxel& gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
-        //double power = glm::pow(gradient.magnitude, 0.3);
-        //float opacity = tfValue.w * (0.2 + 1.1 * power);
-        
+ 
 
         if (m_config.volumeShading) {
             tfValue = glm::vec4(
