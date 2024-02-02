@@ -324,6 +324,7 @@ glm::vec3 Renderer::approxToneShadingHighlights(const glm::vec3& color, const vo
     const glm::vec3 warm = yellowColor + beta * kd;
 
     // Calculate light vector which is perpendicular to the gaze (using the gradient of the surface doesn't give good results, so I take a world vector)
+    // This vector can be adjusted as needed, to obtain a different direction for the light.
     glm::vec3 worldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 lightVector = glm::cross(worldUpVector, glm::normalize(V));
 
