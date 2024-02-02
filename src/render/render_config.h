@@ -30,8 +30,8 @@ struct RenderConfig {
 
     bool ambientOcclusionDebug { false };
     int ambientOcclusionDebugShellLevel { 1 };
-    int ambientOcclusionMaxShells { 2 };
-    float ambientOcclusionNormalFactor { 0.75f };
+    int ambientOcclusionMaxShells { 3 };
+    float ambientOcclusionNormalFactor { 2.0f };
 
     // 1D transfer function.
     std::array<glm::vec4, 256> tfColorMap;

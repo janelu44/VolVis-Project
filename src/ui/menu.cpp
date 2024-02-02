@@ -170,10 +170,10 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::NewLine();
 
         ImGui::Text("Ambient Occlusion:");
-        ImGui::SliderInt("Max shells", &m_renderConfig.ambientOcclusionMaxShells, 1, 6);
+        ImGui::SliderInt("Max shells", &m_renderConfig.ambientOcclusionMaxShells, 1, 4);
         ImGui::SliderFloat("Normal factor", &m_renderConfig.ambientOcclusionNormalFactor, 0.0f, 2.0f, "%.2f");
         ImGui::Checkbox("Debug", &m_renderConfig.ambientOcclusionDebug);
-        ImGui::SliderInt("Shell debug level", &m_renderConfig.ambientOcclusionDebugShellLevel, 1, 10);
+        ImGui::SliderInt("Shell debug level", &m_renderConfig.ambientOcclusionDebugShellLevel, 1, 6);
 
         ImGui::EndTabItem();
     }

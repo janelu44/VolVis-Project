@@ -351,41 +351,6 @@ float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 
 glm::vec4 Renderer::traceRayAmbientOcclusion(const Ray& ray, float sampleStep) const
 {
-    /*
-    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
-    const glm::vec3 increment = sampleStep * ray.direction;
-
-    auto color = glm::vec4(0.0f);
-
-    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
-        const float val = m_pVolume->getSampleInterpolate(samplePos);
-
-        float occlusion = getShellAverage(samplePos);
-
-        auto tfValue = getTFValue(val);
-
-        if (m_config.volumeShading)
-            tfValue = glm::vec4(
-                computePhongShading(
-                    tfValue,
-                    m_pGradientVolume->getGradientInterpolate(samplePos),
-                    m_pCamera->position() - samplePos,
-                    -ray.direction),
-                tfValue.w);
-
-        const auto tfColor = tfValue * glm::vec4(glm::vec3(tfValue.w), 1.0f) * occlusion;
-
-        color += (1.0f - color.w) * tfColor;
-
-        if (color.w > m_config.earlyRayTerminationThreshold)
-            return color;
-    }
-
-    return color;
-
-    */
-
-    // OLD
     glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
 
     volume::ShellBounds debugOuterShell {};
